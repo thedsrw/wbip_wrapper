@@ -1,12 +1,7 @@
-oauth2==1.9.0.post1
-requests==2.28.2
-flask
-#Flask-Caching
-ebooklib>=0.18
-pillow>=9.4.0
 beautifulsoup4>=4.7.1
+ebooklib>=0.18
+flask==2.2.2
 html5lib>=1.0.1
-
-    # "diskcache>=5.4.0", # caches article text and images
-    # "readwise-pyinstapaper==0.2.3", # Instapaper API client
-    # "emoji>=2.2.0", # strips emojis
+oauth2==1.9.0.post1
+pillow>=9.4.0
+requests==2.28.2

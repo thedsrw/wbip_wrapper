@@ -1,20 +1,17 @@
-from my_secrets import oauth_creds
 import io
 import json
 import os
+import time
 from urllib.parse import parse_qsl, urlencode, urlparse
 
-import time
-import os
 import backend.sqlite
-from backend.common import Document, Bookmark
-
-
 import oauth2 as oauth
 import requests
+from backend.common import Bookmark, Document
 from bs4 import BeautifulSoup
 from ebooklib import epub
-from flask import Flask, request, send_file, jsonify
+from flask import Flask, jsonify, request, send_file
+from my_secrets import oauth_creds
 from PIL import Image
 from werkzeug.middleware.proxy_fix import ProxyFix
 
@@ -29,7 +26,6 @@ app.config.from_mapping(config)
 app.wsgi_app = ProxyFix(
     app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1
 )
-
 
 
 BASE_URL = "https://www.instapaper.com"
@@ -66,7 +62,7 @@ def get_entries():
         url = request.get_json().get("url")
         if url:
             result = get_api_data("/bookmarks/add", request.headers['Authorization'],
-                                        parameters={"url": url})
+                                  parameters={"url": url})
             app.logger.info(f"Adding URL {url}: {result}")
             return jsonify(result[0])
     else:
@@ -188,7 +184,7 @@ def get_epub(id):
             uid="style_nav", file_name="style/default.css",
             media_type="text/css", content=f.read())
     book.add_item(nav_css)
-    #book.spine = ['nav'] + chapters
+    # book.spine = ['nav'] + chapters
     book.spine = chapters
 
     IMAGE_GREYSCALE = True
@@ -242,7 +238,7 @@ def get_epub(id):
                         requests.exceptions.InvalidSchema,
                         requests.exceptions.MissingSchema) as e:
                     app.logger.warning('ERROR: Skipping image %s (%s)' %
-                          (img['src'], e))
+                                       (img['src'], e))
                     continue
 
                 original = io.BytesIO()
@@ -259,7 +255,7 @@ def get_epub(id):
 
                 except OSError as e:
                     app.logger.warning('Skipping image %s (%s)' %
-                          (img['src'], e))
+                                       (img['src'], e))
                     continue
 
                 thumbnail.seek(0)

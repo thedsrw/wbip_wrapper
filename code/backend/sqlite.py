@@ -2,6 +2,8 @@ from backend.common import Document, Bookmark
 import sqlite3
 
 # SQLite3 backend, stores data in a local .db file
+
+
 class BackendSQLite:
     # The database location
     database: str
@@ -65,7 +67,7 @@ class BackendSQLite:
                               SET title = ?, url = ? 
                               WHERE id = ?''',
                            (mark.title, mark.url, mark.id))
-        else:    
+        else:
             cursor.execute("INSERT INTO bookmarks VALUES (?, ?, ?)",
                            (mark.id, mark.title, mark.url))
         # Cleanup
@@ -78,14 +80,15 @@ class BackendSQLite:
 #    title: str
 #    url: str
 
-
     # Updates a document, creating if it does not exist.
+
     def update_document(self, username: str, document: Document):
         connection = sqlite3.connect(self.database)
         cursor = connection.cursor()
-        
+
         # If the document doesn't exist, let's create it.
-        cursor.execute("SELECT * FROM documents WHERE username = ? AND document = ?", (username, document.document))
+        cursor.execute("SELECT * FROM documents WHERE username = ? AND document = ?",
+                       (username, document.document))
         if not cursor.fetchone():
             cursor.execute("INSERT INTO documents VALUES (?, ?, ?, ?, ?, ?, ?)",
                            (username, document.document, document.progress, document.percentage,
@@ -110,7 +113,8 @@ class BackendSQLite:
         cursor = connection.cursor()
 
         # Check if the username/userkey combo exists.
-        cursor.execute("SELECT * FROM users WHERE username = ? AND userkey = ?", (username, userkey))
+        cursor.execute(
+            "SELECT * FROM users WHERE username = ? AND userkey = ?", (username, userkey))
         exists = bool(cursor.fetchone())
 
         # Cleanup
@@ -142,7 +146,8 @@ class BackendSQLite:
         cursor = connection.cursor()
 
         # Get the relevant row in the table
-        cursor.execute("SELECT * FROM documents WHERE username = ? AND document = ?", (username, document))
+        cursor.execute(
+            "SELECT * FROM documents WHERE username = ? AND document = ?", (username, document))
         row = cursor.fetchone()
         if not row:
             # Document isn't present in the database
@@ -157,24 +162,3 @@ class BackendSQLite:
         connection.close()
 
         return resultdoc
-
-    # Prints the database to the console.
-    # Intended for debugging.
-    def dbg_print_database(self):
-        connection = sqlite3.connect(self.database)
-        cursor = connection.cursor()
-
-        # Print the users table
-        print("------ Table 'users' ------")
-        for row in cursor.execute("SELECT * FROM users"):
-            print(row)
-
-        # Print the documents table
-        print("\n------ Table 'documents' ------")
-        for row in cursor.execute("SELECT * FROM documents"):
-            print(row)
-
-        # Cleanup
-        cursor.close()
-        connection.close()
-
