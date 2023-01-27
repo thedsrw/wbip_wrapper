@@ -42,24 +42,7 @@ client = oauth.Client(consumer)
 
 @app.route("/")
 def hello_world():
-    return """
-<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
-<html>
-<head>
- <meta http-equiv="Content-type" content="text/html;charset=UTF-8">
- <title>Oh, dear.</title>
- <style>
-  body {font-family: sans-serif; font-size: 10pt; }
- </style>
-</head>
-
-<body>
-<p>
- Here there be <a href="https://cable.dsrw.org/roar.html">dragons</a>.
-</p>
-</body>
-</html>
-"""
+    return "Here there be dragons."
 
 
 @app.post("/oauth/v2/token")
@@ -205,7 +188,8 @@ def get_epub(id):
             uid="style_nav", file_name="style/default.css",
             media_type="text/css", content=f.read())
     book.add_item(nav_css)
-    book.spine = ['nav'] + chapters
+    #book.spine = ['nav'] + chapters
+    book.spine = chapters
 
     IMAGE_GREYSCALE = True
 
