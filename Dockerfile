@@ -14,9 +14,5 @@ RUN pip install -r requirements.txt
 COPY ./code/ /app
 
 ENV KOSYNC_SQLITE3_DB=/data/sqlite3.db
-
-# configure the container to run in an executed manner
-ENTRYPOINT [ "python" ]
-
-CMD ["wbip_wrapper.py" ]
+CMD ["gunicorn"  , "-b", "0.0.0.0:8081", "wbip_wrapper:app"]
 
