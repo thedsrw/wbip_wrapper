@@ -127,3 +127,7 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+# wbip_wrapper files
+my_secrets.py
+data/
