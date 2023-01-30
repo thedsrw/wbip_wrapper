@@ -14,5 +14,7 @@ RUN pip install -r requirements.txt
 COPY ./code/ /app
 
 ENV KOSYNC_SQLITE3_DB=/data/sqlite3.db
-CMD ["gunicorn"  , "-b", "0.0.0.0:8081", "wbip_wrapper:app"]
+CMD ["gunicorn", "-b", "0.0.0.0:8081", "wbip_wrapper:app"]
+#ENTRYPOINT ["python"]
+#CMD ["./wbip_wrapper.py"]
 

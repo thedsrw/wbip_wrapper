@@ -1,5 +1,6 @@
 import io
 import json
+import logging
 import os
 import time
 from urllib.parse import parse_qsl, urlencode, urlparse
@@ -17,8 +18,6 @@ from werkzeug.middleware.proxy_fix import ProxyFix
 
 config = {
     "DEBUG": True,          # some Flask specific configs
-    "CACHE_TYPE": "SimpleCache",  # Flask-Caching related configs
-    "CACHE_DEFAULT_TIMEOUT": 300
 }
 
 app = Flask(__name__)
@@ -26,6 +25,7 @@ app.config.from_mapping(config)
 app.wsgi_app = ProxyFix(
     app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1
 )
+app.logger.setLevel(logging.INFO)
 
 
 BASE_URL = "https://www.instapaper.com"
@@ -44,13 +44,17 @@ def hello_world():
 @app.post("/oauth/v2/token")
 def get_token():
     params = json.loads(request.get_data())
+    app.logger.info(f"Logging in {params['username']}")
     access_token_url = f"{BASE_URL}{API_VERSION}/oauth/access_token"
     response, content = client.request(access_token_url, "POST", urlencode({
         'x_auth_mode': 'client_auth',
         'x_auth_username': params['username'],
         'x_auth_password': params['password']}))
     if response.status == 200:
-        return jsonify({"expires_in": 360, "scope": None, "access_token": content.decode('utf-8')}), 200
+        return jsonify({"expires_in": 1800,
+                        "scope": None,
+                        "access_token": content.decode('utf-8')
+                        }), 200
     else:
         return "Unauthorized", 401
 
@@ -61,17 +65,18 @@ def get_entries():
     if request.method == "POST":
         url = request.get_json().get("url")
         if url:
-            result = get_api_data("/bookmarks/add", request.headers['Authorization'],
+            result = get_api_data("/bookmarks/add",
                                   parameters={"url": url})
-            app.logger.info(f"Adding URL {url}: {result}")
+            app.logger.info(f"\ URL {url}: {result}")
             return jsonify(result[0])
     else:
         if int(request.args.get('page', 1)) > 1:
             return "only one page plz", 404
         entries = []
         app.logger.info("get entries")
-        instapaper = get_api_data("/bookmarks/list", request.headers['Authorization'],
-                                  parameters={"limit": request.args.get('perPage', 30)})
+        instapaper = get_api_data(
+            "/bookmarks/list",
+            parameters={"limit": request.args.get('perPage', 30)})
         for mark in instapaper:
             if mark['type'] != "bookmark":
                 continue
@@ -89,39 +94,31 @@ def get_entries():
         return jsonify({"_embedded": {"items": entries}}), 200
 
 
-@app.route("/api/entries/<int:id>.json", methods=['PATCH', 'DELETE', 'GET'])
+@app.route("/api/entries/<int:id>.json", methods=['PATCH', 'DELETE'])
 def archive_article(id):
-    archive = False
     if request.method == "PATCH":
-        if request.get_json().get("archive") == 1:
-            archive = True
-    elif request.method == "DELETE":
-        archive = True
-    # elif request.method == "GET":
-    #     mark = cache.get(str(id))
-    #     mark['content'] = get_api_data("/bookmarks/get_text", request.headers['Authorization'],
-    #                                    parameters={"bookmark_id": id})
-    #     return jsonify(mark)
-    if archive:
-        get_api_data(f"/bookmarks/archive", request.headers['Authorization'],
-                     parameters={"bookmark_id": id})
-        return jsonify({"id": id, "archive": 1}), 200
-    return jsonify({}), 200
+        if request.get_json().get("archive") != 1:
+            return jsonify({}), 200
+    app.logger.info(f"Archiving {id}")
+    get_api_data(f"/bookmarks/archive",
+                 parameters={"bookmark_id": id})
+    return jsonify({"id": id, "archive": 1}), 200
 
 
 @app.post("/api/entries/<int:id>/tags.json")
 def post_tags(id):
+    app.logger.warning(f"Tagging NOP for {id}")
     return jsonify({})
 
 
 @app.get("/api/entries/<int:id>/export.epub")
 def get_epub(id):
+    app.logger.info(f"Building epub for {id}")
     global g_storage_backend
-    page_content = get_api_data("/bookmarks/get_text", request.headers['Authorization'],
+    page_content = get_api_data("/bookmarks/get_text",
                                 parameters={"bookmark_id": id})
     if not page_content:
         return "No content?", 500
-    retry_count = 0
     mark = g_storage_backend.get_bookmark(id)
     if not mark:
         get_entries()
@@ -129,6 +126,7 @@ def get_epub(id):
     if not mark:
         return "No article?", 500
     app.logger.debug(f"mark: {mark}")
+    r_data = {}
     if mark.url.startswith('http'):
         app.logger.debug(f"enriching {id} with readable data")
         r_data = requests.post(
@@ -138,10 +136,13 @@ def get_epub(id):
                 r_data.pop(k)
             except:
                 pass
-        r_data['url'] = mark.url
-        r_data['title'] = mark.title
-        r_data['id'] = mark.id
-        app.logger.debug(json.dumps(r_data))
+    else:
+        r_data['author'] = "email"
+    r_data.update({
+        'url': mark.url,
+        'title': mark.title,
+        'id': mark.id
+    })
     author = None
     if 'author' in r_data:
         author = r_data['author']
@@ -150,7 +151,6 @@ def get_epub(id):
     if not author:
         author = ""
     title = r_data.get('title', "No Title")
-    cover = r_data.get("lead_image_url")
     header_line = ""
     author_line = ""
     if r_data.get('url', "").startswith("http"):
@@ -161,9 +161,11 @@ def get_epub(id):
         if header_line:
             header_line += " &middot; "
         header_line += f"by {author}"
-        author_line = f"{author} for {author_line}"
+        if author_line:
+            author_line = f"{author} for {author_line}"
+        else:
+            author_line = author
     page_content = f'<h1>{title}</h1><div>{header_line}</div>\n' + page_content
-    # app.logger.debug(page_content)
     book = epub.EpubBook()
     chapters = []
     book.set_title(r_data['title'])
@@ -184,7 +186,6 @@ def get_epub(id):
             uid="style_nav", file_name="style/default.css",
             media_type="text/css", content=f.read())
     book.add_item(nav_css)
-    # book.spine = ['nav'] + chapters
     book.spine = chapters
 
     IMAGE_GREYSCALE = True
@@ -229,7 +230,7 @@ def get_epub(id):
                 thumbnail = io.BytesIO()
 
                 try:
-                    app.logger.info(f"Downloading image {img['src']}")
+                    app.logger.debug(f"Downloading image {img['src']}")
                     content = requests.get(
                         img['src'], timeout=3.05).content
                 except (requests.exceptions.ContentDecodingError,
@@ -267,8 +268,10 @@ def get_epub(id):
             img['style'] = 'max-width: 100%'
             img['src'] = name
         item.content = str(soup.body)
-
-    epub.write_epub(f"/tmp/{r_data['id']}.epub", book, {})
+    try:
+        epub.write_epub(f"/tmp/{r_data['id']}.epub", book)
+    except:
+        return f"Cannot build epub for {id}", 500
 
     return send_file(
         f"/tmp/{r_data['id']}.epub",
@@ -276,8 +279,8 @@ def get_epub(id):
     ), 200
 
 
-def get_api_data(url, auth_header, parameters={}):
-    _, token = auth_header.split(" ", 2)
+def get_api_data(url, parameters={}):
+    token = request.headers['Authorization'].split(" ", 2)[1]
     token = dict(parse_qsl(token))
     token = oauth.Token(token.get("oauth_token"),
                         token.get('oauth_token_secret'))
@@ -307,6 +310,7 @@ def register():
     j = request.get_json()
     username = j.get("username")
     userkey = j.get("password")
+    app.logger.warning(f"CREATING NEW SYNC USER {username}")
 
     # Check that they're both present
     if (not username) or (not userkey):
@@ -324,6 +328,7 @@ def authorize():
 
     username = request.headers.get("x-auth-user")
     userkey = request.headers.get("x-auth-key")
+    app.logger.info(f"Logging in sync user {username}")
 
     # Check that they're both present
     if (not username) or (not userkey):
@@ -355,6 +360,8 @@ def sync_progress():
     device = j.get("device")
     device_id = j.get("device_id")
     timestamp = int(time.time())
+    app.logger.info(
+        f"Syncing for {username}: {document} {int(percentage * 100)}%")
 
     if ((username is None) or (document is None) or (progress is None) or (percentage is None)
        or (userkey is None) or (device is None) or (device_id is None) or (timestamp is None)):
@@ -388,7 +395,8 @@ def get_progress(document):
     doc = g_storage_backend.get_document(username, document)
     if doc is None:
         return "Document does not exist", 404
-
+    app.logger.info(
+        f"Getting sync for {username}: {document} {int(doc.percentage * 100)}%")
     # Return it to the client
     return jsonify(doc), 200
 
@@ -416,4 +424,4 @@ initialize()
 
 
 if __name__ == "__main__":
-    app.run(debug=False, host='0.0.0.0', port=8081)
+    app.run(debug=True, host='0.0.0.0', port=8081)
