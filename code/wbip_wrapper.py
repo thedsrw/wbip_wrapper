@@ -35,6 +35,12 @@ consumer = oauth.Consumer(
     oauth_creds['key'], oauth_creds['secret'])
 client = oauth.Client(consumer)
 
+try:
+    with open("domain_map.json") as fh:
+        domain_map = json.load(fh)
+except:
+    domain_map = {}
+app.logger.debug(f"domain_map: {domain_map}")
 
 @app.route("/")
 def hello_world():
@@ -67,7 +73,7 @@ def get_entries():
         if url:
             result = get_api_data("/bookmarks/add",
                                   parameters={"url": url})
-            app.logger.info(f"\ URL {url}: {result}")
+            app.logger.info(f"Adding URL {url}: {result}")
             return jsonify(result[0])
     else:
         if int(request.args.get('page', 1)) > 1:
@@ -88,7 +94,7 @@ def get_entries():
             # TODO
             # mark['updated_at'] = parse_somehow_mumble(mark['time']) like :   "updated_at": "2023-01-24T15:21:09+0000",
             bookmark = Bookmark(int(mark['id']), mark['title'], mark['url'])
-            app.logger.info(f"Bookmark: {bookmark.title}")
+            app.logger.debug(f"Bookmark: {bookmark.title}")
             g_storage_backend.update_bookmark(bookmark)
             entries.append(mark)
         return jsonify({"_embedded": {"items": entries}}), 200
@@ -113,13 +119,13 @@ def post_tags(id):
 
 @app.get("/api/entries/<int:id>/export.epub")
 def get_epub(id):
-    app.logger.info(f"Building epub for {id}")
     global g_storage_backend
     page_content = get_api_data("/bookmarks/get_text",
                                 parameters={"bookmark_id": id})
     if not page_content:
         return "No content?", 500
     mark = g_storage_backend.get_bookmark(id)
+    app.logger.info(f"Building epub for {id}: {mark.title}")
     if not mark:
         get_entries()
         mark = g_storage_backend.get_bookmark(id)
@@ -138,16 +144,12 @@ def get_epub(id):
                 pass
     else:
         r_data['author'] = "email"
-    r_data.update({
-        'url': mark.url,
-        'title': mark.title,
-        'id': mark.id
-    })
+    r_data.update(mark.__dict__)
     author = None
     if 'author' in r_data:
         author = r_data['author']
     elif 'domain' in r_data:
-        author = r_data['domain']
+        author = domain_map.get(r_data['domain'], r_data['domain'])
     if not author:
         author = ""
     title = r_data.get('title', "No Title")
@@ -155,6 +157,7 @@ def get_epub(id):
     author_line = ""
     if r_data.get('url', "").startswith("http"):
         domain = r_data['url'].split("/")[2].replace("www.", "", 1)
+        domain = domain_map.get(domain, domain)
         header_line += f'<a href="{r_data.get("url", "")}">{domain}</a>'
         author_line = domain
     if author:
