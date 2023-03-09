@@ -117,9 +117,17 @@ def post_tags(id):
     return jsonify({})
 
 
-@app.get("/api/entries/<int:id>/export.epub")
+@app.route("/api/entries/<int:id>/export.epub", methods=['GET', 'HEAD'])
 def get_epub(id):
     global g_storage_backend
+    if os.path.exists(f"/tmp/{id}.epub"):
+        if request.method == "HEAD":
+            return jsonify({"id": id}, 200)
+        return send_file(
+            f"/tmp/{id}.epub",
+            mimetype='application/epub+zip'
+        ), 200
+
     page_content = get_api_data("/bookmarks/get_text",
                                 parameters={"bookmark_id": id})
     if not page_content:
@@ -276,6 +284,8 @@ def get_epub(id):
     except:
         return f"Cannot build epub for {id}", 500
 
+    if request.method == "HEAD":
+        return jsonify({"id": id}, 200)
     return send_file(
         f"/tmp/{r_data['id']}.epub",
         mimetype='application/epub+zip'
