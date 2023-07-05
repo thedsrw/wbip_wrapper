@@ -106,17 +106,17 @@ jobs:
           ECR_REPOSITORY: wbip_wrapper
           IMAGE_TAG: ${{ github.sha }}
         run: |
-          cd ecs_tasks/instapaper2kindle
+          cd docker
           docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
           cd -
       - name: push image to ECR
         if: ${{ github.ref == 'refs/heads/main' }}
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-          ECR_REPOSITORY: instapaper2kindle
+          ECR_REPOSITORY: wbip_wrapper
           IMAGE_TAG: ${{ github.sha }}
         run: |
-          cd ecs_tasks/instapaper2kindle
+          cd docker
           docker tag $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:latest
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
