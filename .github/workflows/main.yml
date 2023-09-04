@@ -13,7 +13,7 @@ jobs:
   do_the_cloud:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - uses: hashicorp/setup-terraform@v2
       - uses: aws-actions/configure-aws-credentials@v2
         with:
