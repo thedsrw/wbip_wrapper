@@ -106,6 +106,10 @@ def archive_article(id):
         if request.get_json().get("archive") != 1:
             return jsonify({}), 200
     app.logger.info(f"Archiving {id}")
+    get_api_data("/bookmarks/update_read_progress",
+                 parameters={"bookmark_id": id,
+                             "progress": 1,
+                             "progress_timestamp": int(time.time())})
     get_api_data(f"/bookmarks/archive",
                  parameters={"bookmark_id": id})
     return jsonify({"id": id, "archive": 1}), 200
