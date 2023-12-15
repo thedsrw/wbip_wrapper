@@ -37,7 +37,7 @@ jobs:
         run: terraform -chdir=terraform/core_infra plan -no-color
         continue-on-error: true
       - name: Comment on PR
-        uses: actions/github-script@v6
+        uses: actions/github-script@v7
         if: ${{ github.event_name == 'pull_request' }}
         env:
           PLAN: "terraform\n${{ steps.plan.outputs.stdout }}"
@@ -75,20 +75,20 @@ jobs:
             })
       - name: Fail for TF fmt failure
         if: ${{ steps.fmt.outcome == 'failure'}}
-        uses: actions/github-script@v6
+        uses: actions/github-script@v7
         with:
           script: |
             core.setFailed('`terraform fmt` failed!')
 
       - name: Fail for TF Validate failure
         if: ${{ steps.validate.outcome == 'failure'}}
-        uses: actions/github-script@v6
+        uses: actions/github-script@v7
         with:
           script: |
             core.setFailed('`terraform validate` failed!')
       - name: Fail for TF Plan failure
         if: ${{ steps.plan.outcome == 'failure'}}
-        uses: actions/github-script@v6
+        uses: actions/github-script@v7
         with:
           script: |
             core.setFailed('`terraform plan` failed!')
