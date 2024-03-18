@@ -231,7 +231,7 @@ def get_epub(id):
                 img.decompose()
                 continue
             img_count += 1
-            if img_count > 10:
+            if img_count > 25:
                 break
             src_parts = urlparse(src)
             ext = os.path.splitext(src_parts.path)[1]
