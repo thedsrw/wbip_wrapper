@@ -149,7 +149,7 @@ def get_epub(id):
     if mark.url.startswith('http'):
         app.logger.debug(f"enriching {id} with readable data")
         r_data = requests.post(
-            'https://jduqg3rqm9.execute-api.us-east-1.amazonaws.com/dev/parse-html', json={'url': mark.url}).json()
+            'http://postlight:3000/parse-html', json={'url': mark.url}).json()
         for k in ['content', 'title', 'dek', 'next_page_url', 'url', 'message']:
             try:
                 r_data.pop(k)
