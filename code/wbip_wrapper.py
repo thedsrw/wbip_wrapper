@@ -2,6 +2,7 @@ import io
 import json
 import logging
 import os
+import re
 import time
 from urllib.parse import parse_qsl, urlencode, urlparse
 
@@ -245,6 +246,7 @@ def get_epub(id):
 
                 thumbnail = io.BytesIO()
 
+                img['src'] = re.sub("%2C$", "", img['src'])
                 try:
                     app.logger.debug(f"Downloading image {img['src']}")
                     content = requests.get(
