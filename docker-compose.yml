@@ -11,5 +11,5 @@ services:
   postlight:
     build: ./postlight/
     restart: unless-stopped
-    ports:
-     - 3000:3000
+#    ports:
+#     - 3000:3000
