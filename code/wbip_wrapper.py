@@ -18,7 +18,7 @@ from PIL import Image
 from werkzeug.middleware.proxy_fix import ProxyFix
 
 config = {
-    "DEBUG": True,          # some Flask specific configs
+    "DEBUG": False,          # some Flask specific configs
 }
 
 app = Flask(__name__)
@@ -81,7 +81,7 @@ def get_entries():
         if int(request.args.get('page', 1)) > 1:
             return "only one page plz", 404
         entries = []
-        app.logger.info("get entries")
+        app.logger.debug("get entries")
         instapaper = get_api_data(
             "/bookmarks/list",
             parameters={"limit": request.args.get('perPage', 30)})
@@ -149,13 +149,17 @@ def get_epub(id):
     r_data = {}
     if mark.url.startswith('http'):
         app.logger.debug(f"enriching {id} with readable data")
-        r_data = requests.post(
-            'http://postlight:3000/parse-html', json={'url': mark.url}).json()
-        for k in ['content', 'title', 'dek', 'next_page_url', 'url', 'message']:
-            try:
-                r_data.pop(k)
-            except:
-                pass
+        try:
+            r_data = requests.post(
+                'http://postlight:3000/parse-html', json={'url': mark.url}).json()
+            for k in ['content', 'title', 'dek', 'next_page_url', 'url', 'message']:
+                try:
+                    r_data.pop(k)
+                except:
+                    pass
+        except Exception as e:
+            app.logger.warning(f"couldn't enrich {mark.title} with postlight: {e}")
+            pass
     else:
         r_data['author'] = "email"
     r_data.update(mark.__dict__)
