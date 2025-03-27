@@ -88,7 +88,7 @@ def get_entries():
         for mark in instapaper:
             if mark['type'] != "bookmark":
                 continue
-            mark['tags'] = []
+            mark['tags'] = [x['name'] for x in mark['tags']]
             mark['id'] = mark['bookmark_id']
             del mark['bookmark_id']
             del mark['type']
