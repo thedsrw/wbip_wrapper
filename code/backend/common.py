@@ -19,3 +19,4 @@ class Bookmark:
     id: int
     title: str
     url: str
+    tags: str

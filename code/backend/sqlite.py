@@ -25,7 +25,7 @@ class BackendSQLite:
 
         # Create the Bookmarks table if it doesn't exist
         cursor.execute('''CREATE TABLE IF NOT EXISTS bookmarks
-                          (id int primary key, title text, url text)''')
+                          (id int primary key, title text, url text, tags text)''')
         # Commit and free the cursor and connection
         cursor.close()
         connection.commit()
@@ -64,12 +64,12 @@ class BackendSQLite:
         cursor.execute("SELECT * FROM bookmarks where id = ?", (mark.id,))
         if cursor.fetchone():
             cursor.execute('''UPDATE bookmarks
-                              SET title = ?, url = ? 
+                              SET title = ?, url = ?, tags = ?
                               WHERE id = ?''',
-                           (mark.title, mark.url, mark.id))
+                           (mark.title, mark.url, mark.tags, mark.id))
         else:
-            cursor.execute("INSERT INTO bookmarks VALUES (?, ?, ?)",
-                           (mark.id, mark.title, mark.url))
+            cursor.execute("INSERT INTO bookmarks VALUES (?, ?, ?, ?)",
+                           (mark.id, mark.title, mark.url, mark.tags))
         # Cleanup
         cursor.close()
         connection.commit()
@@ -132,7 +132,7 @@ class BackendSQLite:
         row = cursor.fetchone()
         if not row:
             return None
-        mark = Bookmark(row[0], row[1], row[2])
+        mark = Bookmark(row[0], row[1], row[2], row[3])
         # Cleanup
         cursor.close()
         connection.commit()
