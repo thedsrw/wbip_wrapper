@@ -88,14 +88,14 @@ def get_entries():
         for mark in instapaper:
             if mark['type'] != "bookmark":
                 continue
-            mark['tags'] = ",".join([x['name'] for x in mark['tags']])
+            mark['tags'] = [x['name'] for x in mark['tags']]
             mark['id'] = mark['bookmark_id']
             del mark['bookmark_id']
             del mark['type']
             mark['mimetype'] = "text/html"
             # TODO
             # mark['updated_at'] = parse_somehow_mumble(mark['time']) like :   "updated_at": "2023-01-24T15:21:09+0000",
-            bookmark = Bookmark(int(mark['id']), mark['title'], mark['url'], mark['tags'])
+            bookmark = Bookmark(int(mark['id']), mark['title'], mark['url'], ",".join(mark['tags']))
             app.logger.debug(f"Bookmark: {bookmark.title}")
             g_storage_backend.update_bookmark(bookmark)
             entries.append(mark)
