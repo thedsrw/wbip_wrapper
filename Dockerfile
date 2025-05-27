@@ -1,5 +1,5 @@
 # start by pulling the python image
-FROM python:3.13-slim
+FROM python:3.13.3-slim
 
 # copy the requirements file into the image
 COPY ./code/requirements.txt /app/requirements.txt
