@@ -5,4 +5,4 @@ gunicorn==23.0.0
 html5lib>=1.0.1
 oauth2==1.9.0.post1
 pillow>=9.4.0
-requests==2.32.4
+requests==2.32.5
