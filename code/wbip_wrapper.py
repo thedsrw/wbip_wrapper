@@ -86,7 +86,7 @@ def get_entries():
             "/bookmarks/list",
             parameters={
                 "limit": request.args.get('perPage', 10) * request.args.get('page', 1),
-                "have": ",".join([x['id'] for x in entries]
+                "have": ",".join([x['id'] for x in entries])
                 })
             # parameters={"limit": request.args.get('perPage', 30)})
         for mark in instapaper:
