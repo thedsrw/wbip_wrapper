@@ -78,13 +78,17 @@ def get_entries():
             app.logger.info(f"Adding URL {url}: {result}")
             return jsonify(result[0])
     else:
-        if int(request.args.get('page', 1)) > 1:
-            return "only one page plz", 404
+        # if int(request.args.get('page', 1)) > 1:
+        #     return "only one page plz", 404
         entries = []
         app.logger.debug("get entries")
         instapaper = get_api_data(
             "/bookmarks/list",
-            parameters={"limit": request.args.get('perPage', 30)})
+            parameters={
+                "limit": request.args.get('perPage', 10) * request.args.get('page', 1),
+                "have": ",".join([x['id'] for x in entries]
+                })
+            # parameters={"limit": request.args.get('perPage', 30)})
         for mark in instapaper:
             if mark['type'] != "bookmark":
                 continue
