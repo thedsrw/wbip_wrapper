@@ -1,7 +1,7 @@
 beautifulsoup4>=4.7.1
 ebooklib>=0.18
 flask==3.1.2
-gunicorn==24.1.1
+gunicorn==25.0.1
 html5lib>=1.0.1
 oauth2==1.9.0.post1
 pillow>=9.4.0
