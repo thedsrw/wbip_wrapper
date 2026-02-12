@@ -1,4 +1,4 @@
-FROM node:24.13.0
+FROM node:24.13.1
 WORKDIR /app
 ADD https://github.com/postlight/parser-api-express/archive/refs/heads/master.tar.gz /app/
 RUN tar xzvf master.tar.gz && \
