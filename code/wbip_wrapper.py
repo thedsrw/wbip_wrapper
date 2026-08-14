@@ -12,7 +12,7 @@ import requests
 from backend.common import Bookmark, Document
 from bs4 import BeautifulSoup
 from ebooklib import epub
-from flask import Flask, jsonify, request, send_file
+from flask import Flask, jsonify, request, send_file, redirect
 from my_secrets import oauth_creds
 from PIL import Image
 from werkzeug.middleware.proxy_fix import ProxyFix
@@ -26,7 +26,7 @@ app.config.from_mapping(config)
 app.wsgi_app = ProxyFix(
     app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1
 )
-app.logger.setLevel(logging.INFO)
+app.logger.setLevel(logging.DEBUG)
 
 
 BASE_URL = "https://www.instapaper.com"
@@ -51,7 +51,10 @@ def hello_world():
 
 @app.post("/oauth/v2/token")
 def get_token():
-    params = json.loads(request.get_data())
+    try:
+        params = json.loads(request.get_data())
+    except:
+        params = dict(parse_qsl(request.get_data().decode()))
     app.logger.info(f"Logging in {params['username']}")
     access_token_url = f"{BASE_URL}{API_VERSION}/oauth/access_token"
     response, content = client.request(access_token_url, "POST", urlencode({
@@ -89,7 +92,7 @@ def get_entries():
         #        "limit": request.args.get('perPage', 10) * request.args.get('page', 1),
         #        "have": ",".join([x['id'] for x in entries])
         #        })
-            parameters={"limit": request.args.get('perPage', 30)})
+            parameters={"limit": request.args.get('perPage', 50)})
         for mark in instapaper:
             if mark['type'] != "bookmark":
                 continue
@@ -98,7 +101,17 @@ def get_entries():
             mark['id'] = mark['bookmark_id']
             del mark['bookmark_id']
             del mark['type']
-            mark['mimetype'] = "text/html"
+            if mark['url'].startswith('http'):
+                try:
+                    enrich = requests.post(
+                                'http://postlight:3000/parse-html', json={'url': mark['url']}).json()
+                    if enrich:
+                        mark['mimetype'] = "text/html"
+                except:
+                    pass
+            #else:
+            #    extension = mark['url'].split('.')[-1]
+            #    mark['url'] = f"https://wbip.dsrw.org/api/entries/{mark['id']}/export.{extension}"
             # TODO
             # mark['updated_at'] = parse_somehow_mumble(mark['time']) like :   "updated_at": "2023-01-24T15:21:09+0000",
             bookmark = Bookmark(int(mark['id']), mark['title'], mark['url'], ",".join(mark['tags']))
@@ -129,8 +142,9 @@ def post_tags(id):
     return jsonify({})
 
 
-@app.route("/api/entries/<int:id>/export.epub", methods=['GET', 'HEAD'])
-def get_epub(id):
+@app.route("/api/entries/<int:id>/export.<extension>", methods=['GET', 'HEAD'])
+def get_epub(id, extension):
+    app.logger.debug(f"id: {id}")
     global g_storage_backend
     if os.path.exists(f"/tmp/{id}.epub"):
         if request.method == "HEAD":
@@ -140,10 +154,6 @@ def get_epub(id):
             mimetype='application/epub+zip'
         ), 200
 
-    page_content = get_api_data("/bookmarks/get_text",
-                                parameters={"bookmark_id": id})
-    if not page_content:
-        return "No content?", 500
     mark = g_storage_backend.get_bookmark(id)
     app.logger.info(f"Building epub for {id}: {mark.title}")
     if not mark:
@@ -152,6 +162,26 @@ def get_epub(id):
     if not mark:
         return "No article?", 500
     app.logger.debug(f"mark: {mark}")
+    page_content = get_api_data("/bookmarks/get_text",
+                                parameters={"bookmark_id": id})
+    if not page_content:
+        url_extension = mark.url.split('.')[-1]
+        if url_extension != extension:
+            return redirect(f"/api/entries/{id}/export.{url_extension}", code=301)
+        filename = f"{id}.{url_extension}"
+        headers = {'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.5 Safari/605.1.15'}
+        response = requests.get(mark.url, stream=True, headers=headers)
+        if not response.ok:
+            return "No content?", 500
+
+        with open(f"/tmp/{filename}", "wb") as fh:
+            fh.write(response.content)
+
+        return send_file(
+            f"/tmp/{filename}",
+            mimetype=response.headers.get('Content-Type', "text/html")
+        ), 200
+
     r_data = {}
     if mark.url.startswith('http'):
         app.logger.debug(f"enriching {id} with readable data")
@@ -266,8 +296,8 @@ def get_epub(id):
                         requests.exceptions.ReadTimeout,
                         requests.exceptions.InvalidSchema,
                         requests.exceptions.MissingSchema) as e:
-                    app.logger.warning('ERROR: Skipping image %s (%s)' %
-                                       (img['src'], e))
+                    app.logger.warning('ERROR: Skipping image %s' %
+                                       (img['src']))
                     continue
 
                 original = io.BytesIO()
