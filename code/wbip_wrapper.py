@@ -12,7 +12,7 @@ import requests
 from backend.common import Bookmark, Document
 from bs4 import BeautifulSoup
 from ebooklib import epub
-from flask import Flask, jsonify, request, send_file, redirect
+from flask import Flask, jsonify, request, send_file, redirect, g
 from my_secrets import oauth_creds
 from PIL import Image
 from werkzeug.middleware.proxy_fix import ProxyFix
@@ -21,12 +21,38 @@ config = {
     "DEBUG": False,          # some Flask specific configs
 }
 
+session = requests.Session()  # reuse connections; saves TCP/TLS setup time
+
+def is_html(url, timeout=(3, 5)):
+    headers = {"Accept": "text/html,application/xhtml+xml;q=0.9,*/*;q=0.1"}
+
+    try:
+        r = session.head(url, headers=headers, timeout=timeout, allow_redirects=True)
+        if r.status_code < 400 and "Content-Type" in r.headers:
+            return _check(r)
+    except requests.RequestException:
+        pass
+
+    # Fallback: GET, but don't download the body
+    try:
+        with session.get(url, headers=headers, timeout=timeout,
+                         allow_redirects=True, stream=True) as r:
+            return _check(r)
+    except requests.RequestException:
+        return False
+
+
+def _check(r):
+    ctype = r.headers.get("Content-Type", "").split(";")[0].strip().lower()
+    return ctype in ("text/html", "application/xhtml+xml")
+
+
 app = Flask(__name__)
 app.config.from_mapping(config)
 app.wsgi_app = ProxyFix(
     app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1
 )
-app.logger.setLevel(logging.DEBUG)
+app.logger.setLevel(logging.INFO)
 
 
 BASE_URL = "https://www.instapaper.com"
@@ -42,6 +68,24 @@ try:
 except:
     domain_map = {}
 app.logger.debug(f"domain_map: {domain_map}")
+
+@app.before_request
+def start_timer():
+    g.start = time.perf_counter()
+
+@app.after_request
+def log_request(response):
+    duration_ms = (time.perf_counter() - g.start) * 1000
+    app.logger.info(
+        "%s %s -> %s (%.1f ms) from %s",
+        request.method,
+        request.full_path.rstrip("?"),
+        response.status_code,
+        duration_ms,
+        request.remote_addr,
+    )
+    return response
+
 
 
 @app.route("/")
@@ -101,17 +145,11 @@ def get_entries():
             mark['id'] = mark['bookmark_id']
             del mark['bookmark_id']
             del mark['type']
-            if mark['url'].startswith('http'):
-                try:
-                    enrich = requests.post(
-                                'http://postlight:3000/parse-html', json={'url': mark['url']}).json()
-                    if enrich:
-                        mark['mimetype'] = "text/html"
-                except:
-                    pass
-            #else:
-            #    extension = mark['url'].split('.')[-1]
-            #    mark['url'] = f"https://wbip.dsrw.org/api/entries/{mark['id']}/export.{extension}"
+            if mark['url'].startswith('http') and is_html(mark['url']):
+                mark['mimetype'] = "text/html"
+            else:
+                extension = mark['url'].split('.')[-1]
+                mark['url'] = f"https://wbip.dsrw.org/api/entries/{mark['id']}/export.{extension}"
             # TODO
             # mark['updated_at'] = parse_somehow_mumble(mark['time']) like :   "updated_at": "2023-01-24T15:21:09+0000",
             bookmark = Bookmark(int(mark['id']), mark['title'], mark['url'], ",".join(mark['tags']))
