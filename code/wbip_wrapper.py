@@ -145,11 +145,12 @@ def get_entries():
             mark['id'] = mark['bookmark_id']
             del mark['bookmark_id']
             del mark['type']
-            if mark['url'].startswith('http') and is_html(mark['url']):
-                mark['mimetype'] = "text/html"
-            else:
-                extension = mark['url'].split('.')[-1]
-                mark['url'] = f"https://wbip.dsrw.org/api/entries/{mark['id']}/export.{extension}"
+            if mark['url'].startswith('http'):
+                if is_html(mark['url']):
+                    mark['mimetype'] = "text/html"
+            #else:
+            #    extension = mark['url'].split('.')[-1]
+            #    mark['url'] = f"https://wbip.dsrw.org/api/entries/{mark['id']}/export.{extension}"
             # TODO
             # mark['updated_at'] = parse_somehow_mumble(mark['time']) like :   "updated_at": "2023-01-24T15:21:09+0000",
             bookmark = Bookmark(int(mark['id']), mark['title'], mark['url'], ",".join(mark['tags']))
